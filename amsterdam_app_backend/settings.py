@@ -3,8 +3,8 @@ Django settings for amsterdam_app_backend project.
 """
 import os
 from uuid import uuid4
+from base64 import b64encode
 from pathlib import Path
-from amsterdam_app_api.GenericFunctions.Hashing import Hashing
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -13,7 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # Create random security string on startup
-SECRET_KEY = 'b7%xp-c$+1qxhih-xztuk5j@shbd5c-py*8emh2wly@@$c8r=0'
+SECRET_KEY = b64encode(str(uuid4()).encode('utf-8')).decode()
 
 # Whether to use a secure cookie for the CSRF cookie. If this is set to True, the cookie will be marked as “secure”,
 # which means browsers may ensure that the cookie is only sent with an HTTPS connection.
@@ -44,6 +44,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders',
     'django_nose',
     'django_crontab',
     'django.contrib.admin',
@@ -60,6 +61,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -69,6 +71,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_HEADERS = ['deviceid']
 ROOT_URLCONF = 'amsterdam_app_backend.urls'
 
 TEMPLATES = [
@@ -128,6 +132,7 @@ POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'POSTGRES_PASSWORD')
 POSTGRES_USER = os.getenv('POSTGRES_USER', 'POSTGRES_USER')
 POSTGRES_DB = os.getenv('POSTGRES_DB', 'POSTGRES_DB')
 POSTGRES_HOST = os.getenv('POSTGRES_HOST', '0.0.0.0')
+POSTGRES_PORT = int(os.getenv('POSTGRES_PORT', '5432'))
 
 # Setup database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
@@ -139,7 +144,7 @@ DATABASES = {
         'USER': POSTGRES_USER,
         'PASSWORD': POSTGRES_PASSWORD,
         'HOST': POSTGRES_HOST,
-        'PORT': 5432
+        'PORT': POSTGRES_PORT
     }
 }
 

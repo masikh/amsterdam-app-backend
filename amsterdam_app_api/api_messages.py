@@ -3,10 +3,12 @@
 
 
 class Messages:
+    """ Generic API messages """
     def __init__(self):
         self.access_denied = 'ACCESS DENIED'
         self.distance_params = 'Use either street + num or lat/lon'
         self.do_not_match = 'Passwords do not match'
+        self.invalid_headers = 'Invalid header(s). See /api/v1/apidocs for more information'
         self.invalid_query = 'Invalid query parameter(s). See /api/v1/apidocs for more information'
         self.invalid_username_or_password = 'Invalid username or password'
         self.no_record_found = 'No record found'

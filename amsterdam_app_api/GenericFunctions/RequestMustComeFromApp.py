@@ -1,8 +1,11 @@
-import functools
-from amsterdam_app_api.GenericFunctions.AESCipher import AESCipher
-from django.http.response import HttpResponseForbidden
+""" This class is a decorator for APIs specific for devices."""
 
-valid_app_token = "44755871-9ea6-4018-b1df-e4f00466c723"
+import os
+import functools
+from django.http.response import HttpResponseForbidden
+from amsterdam_app_api.GenericFunctions.AESCipher import AESCipher
+
+valid_app_token = os.getenv('APP_TOKEN')
 
 
 class RequestMustComeFromApp:
@@ -31,14 +34,16 @@ class RequestMustComeFromApp:
         if self.is_valid_token(encrypted_token=encrypted_token):
             return self.func(*args, **kwargs)
 
-        # Access is not allowed, abort with 401
+        # Access is not allowed, abort with 403
         return HttpResponseForbidden()
 
     @staticmethod
     def is_valid_token(encrypted_token=None):
+        """ Check if token is valid """
         if encrypted_token is None:
             return False
-        token = AESCipher(encrypted_token, '6886b31dfe27e9306c3d2b553345d9e5').decrypt()
+        aes_secret = os.getenv('AES_SECRET')
+        token = AESCipher(encrypted_token, aes_secret).decrypt()
         if valid_app_token != token:
             return False
         return True

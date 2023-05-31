@@ -35,24 +35,10 @@ function set_header {
     printf "\nInitializing Amsterdam-App-Backend\n"
 }
 
-function enable_python_venv {
-   printf "\nEnabling python venv\n"
-   cd /code && source venv/bin/activate
-}
-
 function make_migrations {
     printf "\nRunning DB migrations scripts ... "
     cd /code && python manage.py makemigrations amsterdam_app_api
     cd /code && python manage.py migrate
-    printf "Done.\n"
-}
-
-function add_cron_jobs {
-    printf "\nRemoving old cronjobs ... "
-    cd /code && python manage.py crontab remove
-    printf "Done.\n"
-    printf "\nSetting new cronjobs ... "
-    cd /code && python manage.py crontab add
     printf "Done.\n"
 }
 
@@ -62,38 +48,37 @@ function add_static_files {
 }
 
 function create_user {
-    printf "\nCreating web-user\n"
+    printf "\nCreating web-users\n"
     cd /code && python create_user.py
-}
-
-function create_vue_code {
-  printf "\nCompiling Vue\n"
-  cd /code/vue_web_code && npm install && npm run build
 }
 
 function start_backend {
     printf "\nStarting Django API server\n\n"
-    cd /code && python manage.py runserver 0.0.0.0:8000
+    DEFAULT_API_PORT=8000
+    API_PORT="${API_PORT:=${DEFAULT_API_PORT}}"
+    cd /code && python manage.py runserver 0.0.0.0:${API_PORT}
 }
 
 function enter_infinity_loop {
-  while true; do
-    # Touch /code/DEBUG, kill python process and run python manage.py [...] manually for debugging...
-    if [[ ! -f "/code/DEBUG" ]]
-    then
-	    start_backend;
-    fi
-    sleep 1
-  done
+  if [ -z ${UNITTEST} ]; then
+    while true; do
+      # Touch /code/DEBUG, kill python process and run python manage.py [...] manually for debugging...
+      if [[ ! -f "/code/DEBUG" ]]
+      then
+        start_backend;
+      fi
+      sleep 1
+    done
+  else
+    printf "Starting unittests\n\n"
+    cd /code && python manage.py test
+  fi      
 }
 
 is_db_alive
 enable_db_text_search
 set_header
-enable_python_venv
 make_migrations
 create_user
-create_vue_code
-add_cron_jobs
 add_static_files
 enter_infinity_loop

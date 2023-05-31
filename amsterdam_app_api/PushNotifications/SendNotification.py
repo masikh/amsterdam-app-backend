@@ -1,13 +1,16 @@
+""" Send pushnotification """
 import firebase_admin
 from firebase_admin import messaging
 from firebase_admin import credentials
 from amsterdam_app_api.GenericFunctions.Logger import Logger
-from amsterdam_app_api.models import MobileDevices
 from amsterdam_app_api.models import Notification
+from amsterdam_app_api.models import FollowedProjects
+from amsterdam_app_api.models import FirebaseTokens
 from amsterdam_app_backend.settings import BASE_DIR
 
 
 class SendNotification:
+    """ Send notification through the firebase network (google) """
     def __init__(self, identifier, batch_size=500):
         self.logger = Logger()
         self.identifier = identifier
@@ -21,12 +24,13 @@ class SendNotification:
         self.subscribed_device_batches = None
         self.notification = None
         self.project_identifier = None
-        self.article_type = None  # news, warning
+        self.article_type = None
         self.link_source_id = None
         self.setup_result = self.setup()
         self.valid_notification = self.setup_result['status']
 
     def setup(self):
+        """ Init subscribers """
         self.notification = self.set_notification()
         if self.notification is None or self.article_type is None:
             return {'status': False, 'result': 'No notification or article type found'}
@@ -38,14 +42,15 @@ class SendNotification:
         return {'status': True, 'result': 'valid notification'}
 
     def set_notification(self):
+        """ Set notification object """
         try:
             notification = Notification.objects.filter(pk=self.identifier).first()
-            self.project_identifier = notification.project_identifier
+            self.project_identifier = notification.project_identifier_id
             if notification.news_identifier != '' and notification.news_identifier is not None:
                 self.article_type = 'NewsUpdatedByProjectManager'
                 self.link_source_id = notification.news_identifier
             elif notification.warning_identifier != '' and notification.warning_identifier is not None:
-                self.article_type = 'WarningCreatedByProjectManager'
+                self.article_type = 'ProjectWarningCreatedByProjectManager'
                 self.link_source_id = notification.warning_identifier
 
             return messaging.Notification(
@@ -57,17 +62,20 @@ class SendNotification:
             return None
 
     def create_subscribed_device_batches(self):
-        filtered_devices = list(MobileDevices.objects.filter(projects__contains=[self.project_identifier]))
+        """ Create batches of subscribers """
+        followers = [x.deviceid for x in list(FollowedProjects.objects.filter(projectid=self.project_identifier).all())]
+        filtered_devices = [x.firebasetoken for x in list(FirebaseTokens.objects.filter(deviceid__in=followers).all())]
         return [filtered_devices[x:x + self.batch_size] for x in range(0, len(filtered_devices), self.batch_size)]
 
     def send_multicast_and_handle_errors(self):
+        """ Send message to subscribers """
+
         # Only send the notification if the setup() went well
         if self.valid_notification is False:
             return
 
         failed_tokens = []
-        for batch in self.subscribed_device_batches:
-            registration_tokens = [x.device_token for x in batch]
+        for registration_tokens in self.subscribed_device_batches:
             message = messaging.MulticastMessage(
                 data={'linkSourceid': str(self.link_source_id), 'type': self.article_type},
                 notification=self.notification,

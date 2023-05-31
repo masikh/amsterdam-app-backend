@@ -1,6 +1,10 @@
+""" Views for distance API's """
 import json
-import requests
 import urllib.parse
+import requests
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 from amsterdam_app_api.GenericFunctions.StaticData import StaticData
 from amsterdam_app_api.GenericFunctions.Distance import Distance
 from amsterdam_app_api.GenericFunctions.Sort import Sort
@@ -8,9 +12,6 @@ from amsterdam_app_api.api_messages import Messages
 from amsterdam_app_api.models import ProjectDetails, Projects
 from amsterdam_app_api.serializers import ProjectsSerializer
 from amsterdam_app_api.swagger.swagger_views_distance import as_distance
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from drf_yasg.utils import swagger_auto_schema
 
 messages = Messages()
 
@@ -30,8 +31,8 @@ def distance(request):
             serializer = ProjectsSerializer(projects_object, many=False)
 
         result = serializer.data
-        result['meter'] = int(distance.meter)
-        result['strides'] = int(distance.strides)
+        result['meter'] = int(_distance.meter) if _distance.meter is not None else None
+        result['strides'] = int(_distance.strides) if _distance.strides is not None else None
         return result
 
     lat = request.GET.get('lat', None)
@@ -57,17 +58,24 @@ def distance(request):
     except Exception as error:
         return Response({'status': False, 'result': str(error)}, 500)
 
-    results = list()
+    results = []
     projects = list(ProjectDetails.objects.filter().all())
     for project in projects:
         cords_2 = (project.coordinates['lat'], project.coordinates['lon'])
-        distance = Distance(cords_1, cords_2)
+        if project.coordinates['lat'] is None or project.coordinates['lon'] is None:
+            cords_2 = (None, None)
+        elif (0, 0) == (int(project.coordinates['lat']), int(project.coordinates['lon'])):
+            cords_2 = (None, None)
+        this_distance = Distance(cords_1, cords_2)
 
+        result = None
         if radius is None:
-            result = get_projects_data(project.identifier, model_items, distance)
-            results.append(result)
-        elif distance.meter < float(radius):
-            result = get_projects_data(project.identifier, model_items, distance)
+            result = get_projects_data(project.identifier_id, model_items, this_distance)
+        elif this_distance.meter is not None and this_distance.meter < float(radius):
+            result = get_projects_data(project.identifier_id, model_items, this_distance)
+
+        # Append the results
+        if result is not None and result['identifier'] != "":
             results.append(result)
 
     sorted_results = Sort().list_of_dicts(results, key='meter', sort_order='asc')
